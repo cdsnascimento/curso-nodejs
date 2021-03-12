@@ -1,15 +1,16 @@
 
 const { check, validationResult } = require('express-validator');
 
-let yourValidationChains =  [
-                            check('name','O nome é obrigatório.').notEmpty(),
-                            check('email','O Email está inválido.').notEmpty().isEmail()
-                            ];
-
+let checkFields = [
+        check('name').not().isEmpty(),
+        check('email').not().isEmpty().isEmail(),
+        check('password').not().isEmpty()
+];
+            
 
 
 let NeDB = require('nedb');
-const { user } = require('../utils/validator');
+//const { user } = require('../utils/validator');
 
 let db = new NeDB({
     filename: 'users.db',
@@ -50,15 +51,46 @@ module.exports = app => {
         });
     });
 
-    routeId.put((req, res) => {
-        db.update({_id:req.params.id}, req.body, err => {
-            if (err){
-                app.u.error.send(err, req, res);
-            } else {
-                res.status(200).json(Object.assign(req.params, req.body));
-            }
-        });
+
+    
+    routeId.put(checkFields, (req, res) => {
+
+        let errors = validationResult(req);
+         
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        } else {
+            db.update({_id:req.params.id}, req.body, err => {
+                if (err){
+                    app.utils.error.send(err, req, res);
+                } else {
+                    res.status(200).json(Object.assign(req.params, req.body));
+                }
+            }); 
+        }
     }); 
+
+   
+
+    route.post(checkFields,
+        (req, res) => {
+        
+        let errors = validationResult(req);
+
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        } else {
+            db.insert(req.body, (err, user) => {
+                if (err) {
+                    app.utils.error.send(err, req, res);
+                } else {
+                    res.status(200).json(user);
+                }
+            });
+        }
+
+
+    });
 
     routeId.delete((req, res) => {
         db.remove({_id:req.params.id},{}, err => {
@@ -70,40 +102,5 @@ module.exports = app => {
         });
     });
 
-    route.post(yourValidationChains,(req, res) => {
-        
-        if (!app.utils.validator.user(app, req, res)) return false;
-
-        db.insert(req.body, (err, req, res) => {
-            if (err) {
-                app.utils.error.send(err, req, res);
-            } else {
-                res.status(200).json(user);
-            }
-        });
-    });
-
-
-/* 
-    route.post(yourValidationChains, (req, res) =>{
-
-        let errors = validationResult(req);
-
-                    if (!errors.isEmpty()){
-
-                        app.utils.error.send(errors, req, res);
-                        return false;
-                    }
-
-                    db.insert(req.body, (err, user) => {
-                        if (err){
-                            app.utils.error.send(err, req, res);
-                        }else{
-                            res.status(200).json(user);
-                        }
-                    });
-
-    });
-     */
 
 };
